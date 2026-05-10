@@ -29,7 +29,7 @@ build_with_mutagen_using_volume:
     {{mutagen}} sync terminate {{mutagen_name}}
 
 build_in_container:
-    docker run -it --rm  {{image}} bash -c "mkdir -p /cmake_in_container/build && cd /cmake_in_container/ && ../bootstrap --parallel={{parallel}} && time make -j{{parallel}}"
+    docker run -it --rm  {{image}} bash -c "mkdir -p /cmake_in_container/build && cd /cmake_in_container/build && ../bootstrap --parallel={{parallel}} && time make -j{{parallel}}"
 
 shell:
     docker run -it --rm -v {{invocation_directory()}}/cmake:/cmake {{image}} bash
