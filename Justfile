@@ -1,53 +1,51 @@
 image := "build-container"
 container := "worker"
-volume := "uboot_volume"
-mutagen_name := "uboot-code"
+volume := "cmake_volume"
+mutagen_name := "cmake-code"
+mutagen := if os_family() == "windows" { "./mutagen.exe" } else { "mutagen" }
+
+# `just --shell powershell.exe --shell-arg -c build`
 
 build:
-    docker run -it --rm -v `pwd`/u-boot:/u-boot {{image}} bash -c "cd /u-boot/ && make rpi_arm64_defconfig && time make -j 8"
+    docker run -it --rm -v {{invocation_directory()}}/cmake:/cmake {{image}} bash -c "mkdir -p /cmake/build && cd /cmake/build && ../bootstrap && time make -j8"
 
 build_with_mutagen:
     docker run -it -d --name {{container}} --rm {{image}}
-    mutagen sync create --name={{mutagen_name}} {{invocation_directory()}}/u-boot docker://{{container}}/u-boot
+    {{mutagen}} sync create --name={{mutagen_name}} {{invocation_directory()}}/cmake docker://{{container}}/cmake
     time mutagen sync flush {{mutagen_name}}
-    docker exec {{container}} bash -c "cd /u-boot/ && make rpi_arm64_defconfig && time make -j 8"
-    mutagen sync flush {{mutagen_name}}
+    docker exec {{container}} bash -c "mkdir -p /cmake/build && cd /cmake/build && ../bootstrap && time make -j8"
+    {{mutagen}} sync flush {{mutagen_name}}
     docker stop {{container}}
-    mutagen sync terminate {{mutagen_name}}
+    {{mutagen}} sync terminate {{mutagen_name}}
 
 build_with_mutagen_using_volume:
-    docker run -it -d --mount source={{volume}},target=/u-boot --name {{container}} --rm {{image}}
-    mutagen sync create --name={{mutagen_name}} {{invocation_directory()}}/u-boot docker://{{container}}/u-boot
-    # time mutagen sync flush {{mutagen_name}}
-    docker exec {{container}} bash -c "cd /u-boot/ && make rpi_arm64_defconfig && time make -j 8"
-    mutagen sync flush {{mutagen_name}}
+    docker run -it -d -v {{volume}}:/cmake --name {{container}} --rm {{image}}
+    {{mutagen}} sync create --name={{mutagen_name}} {{invocation_directory()}}/cmake docker://{{container}}/cmake
+    time mutagen sync flush {{mutagen_name}}
+    docker exec {{container}} bash -c "mkdir -p /cmake/build && cd /cmake/build && ../bootstrap && time make -j8"
+    {{mutagen}} sync flush {{mutagen_name}}
     docker stop {{container}}
-    mutagen sync terminate {{mutagen_name}}
+    {{mutagen}} sync terminate {{mutagen_name}}
 
 build_in_container:
-    docker run -it --rm  {{image}} bash -c "cd /u-boot_in_container/ && make rpi_arm64_defconfig && time make -j 8"
+    docker run -it --rm  {{image}} bash -c "cd /cmake_in_container/ && ./bootstrap && time make -j8"
 
 shell:
-    docker run -it --rm -v `pwd`/u-boot:/u-boot {{image}} bash
+    docker run -it --rm -v {{invocation_directory()}}/cmake:/cmake {{image}} bash
 
 clean:
     docker stop {{container}} || true
-    mutagen sync terminate {{mutagen_name}} || true
-    cd u-boot/ && git clean -fdx
-    docker run -it --mount source={{volume}},target=/u-boot --name {{container}} --rm {{image}} bash -c "cd /u-boot/ && git clean -fdx"
+    {{mutagen}} sync terminate {{mutagen_name}} || true
+    rm -rf /cmake/build || true
+    docker run -it -v {{volume}}:/cmake --name {{container}} --rm {{image}} bash -c "rm -rf /cmake/build || true" 
 
 
 setup:
-    #!/usr/bin/env -S bash -x
-    if [ ! -e u-boot ]; then
-        git clone https://github.com/u-boot/u-boot
-    fi
+    bash -c 'if [ ! -e cmake ]; then git clone https://github.com/kitware/cmake --depth=1 ; fi'
     docker build -t {{image}} .
     docker volume create {{volume}}
-
-    docker run -it -d --mount source={{volume}},target=/u-boot --name {{container}} --rm {{image}}
-    mutagen sync create --name={{mutagen_name}} {{invocation_directory()}}/u-boot docker://{{container}}/u-boot
-    mutagen sync flush {{mutagen_name}}
-    docker exec {{container}} bash -c "cd /u-boot/ && ls"
+    docker run -it -d -v {{volume}}:/cmake --name {{container}} --rm {{image}}
+    {{mutagen}} sync create --name={{mutagen_name}} {{invocation_directory()}}/cmake docker://{{container}}/cmake
+    {{mutagen}} sync flush {{mutagen_name}}
     docker stop {{container}}
-    mutagen sync terminate {{mutagen_name}}
+    {{mutagen}} sync terminate {{mutagen_name}}

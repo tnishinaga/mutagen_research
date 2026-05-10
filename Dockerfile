@@ -11,5 +11,5 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
   apt-get update && apt-get --no-install-recommends install -y \
   build-essential pkg-config ca-certificates just bison flex libssl-dev libgnutls28-dev git
 
-COPY ./u-boot /u-boot_in_container
-RUN mkdir -p /u-boot
+RUN git clone https://github.com/kitware/cmake --depth=1 cmake_in_container
+RUN mkdir -p /cmake
