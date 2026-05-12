@@ -8,13 +8,13 @@ parallel := "8"
 # `just --shell powershell.exe --shell-arg -c build`
 
 build:
-    docker run -it --rm -v {{invocation_directory()}}/cmake:/cmake {{image}} bash -c "mkdir -p /cmake/build && cd /cmake/build && ../bootstrap --parallel={{parallel}} && time make -j{{parallel}}"
+    docker run -it --rm -v {{invocation_directory()}}/cmake:/cmake {{image}} bash -c "mkdir -p /cmake/build && cd /cmake/build && chmod +x ../bootstrap && ../bootstrap --parallel={{parallel}} && time make -j{{parallel}}"
 
 build_with_mutagen:
     docker run -it -d --name {{container}} --rm {{image}}
     {{mutagen}} sync create --name={{mutagen_name}} {{invocation_directory()}}/cmake docker://{{container}}/cmake
-    time mutagen sync flush {{mutagen_name}}
-    docker exec {{container}} bash -c "mkdir -p /cmake/build && cd /cmake/build && ../bootstrap --parallel={{parallel}} && time make -j{{parallel}}"
+    {{mutagen}} sync flush {{mutagen_name}}
+    docker exec {{container}} bash -c "mkdir -p /cmake/build && cd /cmake/build && chmod +x ../bootstrap && ../bootstrap --parallel={{parallel}} && time make -j{{parallel}}"
     {{mutagen}} sync flush {{mutagen_name}}
     docker stop {{container}}
     {{mutagen}} sync terminate {{mutagen_name}}
@@ -22,8 +22,28 @@ build_with_mutagen:
 build_with_mutagen_using_volume:
     docker run -it -d -v {{volume}}:/cmake --name {{container}} --rm {{image}}
     {{mutagen}} sync create --name={{mutagen_name}} {{invocation_directory()}}/cmake docker://{{container}}/cmake
-    time mutagen sync flush {{mutagen_name}}
-    docker exec {{container}} bash -c "mkdir -p /cmake/build && cd /cmake/build && ../bootstrap --parallel={{parallel}} && time make -j{{parallel}}"
+    {{mutagen}} sync flush {{mutagen_name}}
+    docker exec {{container}} bash -c "mkdir -p /cmake/build && cd /cmake/build && chmod +x ../bootstrap && ../bootstrap --parallel={{parallel}} && time make -j{{parallel}}"
+    {{mutagen}} sync flush {{mutagen_name}}
+    docker stop {{container}}
+    {{mutagen}} sync terminate {{mutagen_name}}
+
+[windows]
+windows_build_with_mutagen_using_volume:
+    docker run -it -d -v {{volume}}:/cmake --name {{container}} --rm {{image}}
+    {{mutagen}} sync create --name={{mutagen_name}} {{invocation_directory()}}/cmake docker://{{container}}/cmake
+    (Measure-Command { {{mutagen}} sync flush {{mutagen_name}} }).TotalSeconds
+    docker exec {{container}} bash -c "mkdir -p /cmake/build && cd /cmake/build && chmod +x ../bootstrap && ../bootstrap --parallel={{parallel}} && time make -j{{parallel}}"
+    {{mutagen}} sync flush {{mutagen_name}}
+    docker stop {{container}}
+    {{mutagen}} sync terminate {{mutagen_name}}
+
+[windows]
+windows_build_with_mutagen:
+    docker run -it -d --name {{container}} --rm {{image}}
+    {{mutagen}} sync create --name={{mutagen_name}} {{invocation_directory()}}/cmake docker://{{container}}/cmake
+    (Measure-Command { {{mutagen}} sync flush {{mutagen_name}} }).TotalSeconds
+    docker exec {{container}} bash -c "mkdir -p /cmake/build && cd /cmake/build && chmod +x ../bootstrap && ../bootstrap --parallel={{parallel}} && time make -j{{parallel}}"
     {{mutagen}} sync flush {{mutagen_name}}
     docker stop {{container}}
     {{mutagen}} sync terminate {{mutagen_name}}
@@ -35,10 +55,10 @@ shell:
     docker run -it --rm -v {{invocation_directory()}}/cmake:/cmake {{image}} bash
 
 clean:
-    docker stop {{container}} || true
-    {{mutagen}} sync terminate {{mutagen_name}} || true
-    rm -rf /cmake/build || true
-    docker run -it -v {{volume}}:/cmake --name {{container}} --rm {{image}} bash -c "rm -rf /cmake/build || true" 
+    -docker stop {{container}}
+    -{{mutagen}} sync terminate {{mutagen_name}}
+    -docker run -it -v {{invocation_directory()}}/cmake:/cmake --rm {{image}} bash -c "rm -rf /cmake/build"
+    -docker run -it -v {{volume}}:/cmake --rm {{image}} bash -c "rm -rf /cmake/build || true" 
 
 
 setup:
