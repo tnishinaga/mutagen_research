@@ -22,7 +22,7 @@ build_with_mutagen:
 build_with_mutagen_using_volume:
     docker run -it -d -v {{volume}}:/cmake --name {{container}} --rm {{image}}
     {{mutagen}} sync create --name={{mutagen_name}} {{invocation_directory()}}/cmake docker://{{container}}/cmake
-    {{mutagen}} sync flush {{mutagen_name}}
+    time {{mutagen}} sync flush {{mutagen_name}}
     docker exec {{container}} bash -c "mkdir -p /cmake/build && cd /cmake/build && chmod +x ../bootstrap && ../bootstrap --parallel={{parallel}} && time make -j{{parallel}}"
     {{mutagen}} sync flush {{mutagen_name}}
     docker stop {{container}}
